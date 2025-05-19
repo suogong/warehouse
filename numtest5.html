@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>달력 출력 예제</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 30px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 400px;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #999;
+      padding: 10px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #f2f2f2;
+    }
+
+    .sunday {
+      color: red;
+      font-weight: bold;
+    }
+
+    input {
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📅 월별 달력 출력기</h2>
+  <label for="yearInput">연도:</label>
+  <input type="number" id="yearInput" value="2025" min="1">
+  <label for="monthInput">월:</label>
+  <input type="number" id="monthInput" value="5" min="1" max="12">
+  <button onclick="generateCalendar()">달력 출력</button>
+
+  <div id="calendarContainer"></div>
+
+  <script>
+    function isLeapYear(year) {
+      return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+    }
+
+    function generateCalendar() {
+      const year = parseInt(document.getElementById("yearInput").value);
+      const month = parseInt(document.getElementById("monthInput").value);
+      const container = document.getElementById("calendarContainer");
+      container.innerHTML = ""; // 이전 달력 제거
+
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        container.innerHTML = "<p style='color:red;'>올바른 연도와 월을 입력하세요.</p>";
+        return;
+      }
+
+      // 월별 일수 계산
+      let daysInMonth;
+      switch (month) {
+        case 2:
+          daysInMonth = isLeapYear(year) ? 29 : 28;
+          break;
+        case 4: case 6: case 9: case 11:
+          daysInMonth = 30;
+          break;
+        default:
+          daysInMonth = 31;
+      }
+
+      // 첫 번째 요일 계산
+      const firstDay = new Date(year, month - 1, 1).getDay();
+      const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
+
+      // 테이블 생성
+      let html = `<h3>${year}년 ${month}월</h3>`;
+      html += "<table><thead><tr>";
+
+      weekDays.forEach((day, index) => {
+        const className = index === 0 ? " class='sunday'" : "";
+        html += `<th${className}>${day}</th>`;
+      });
+
+      html += "</tr></thead><tbody><tr>";
+
+      // 빈 셀 출력
+      for (let i = 0; i < firstDay; i++) {
+        html += "<td></td>";
+      }
+
+      // 날짜 출력
+      for (let day = 1; day <= daysInMonth; day++) {
+        const currentDate = new Date(year, month - 1, day);
+        const weekday = currentDate.getDay();
+
+        // 일요일은 클래스 추가
+        const tdClass = weekday === 0 ? " class='sunday'" : "";
+        html += `<td${tdClass}>${day}</td>`;
+
+        // 토요일이면 줄 바꿈
+        if (weekday === 6 && day !== daysInMonth) {
+          html += "</tr><tr>";
+        }
+      }
+
+      html += "</tr></tbody></table>";
+      container.innerHTML = html;
+    }
+
+    // 페이지 로드시 기본 출력
+    window.onload = generateCalendar;
+  </script>
+
+</body>
+</html>

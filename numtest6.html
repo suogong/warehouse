@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>연간 달력 출력기</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    input {
+      margin-bottom: 20px;
+    }
+
+    .calendar-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .calendar {
+      border: 1px solid #999;
+      padding: 10px;
+      width: 250px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 5px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #f0f0f0;
+    }
+
+    .sunday {
+      color: red;
+    }
+
+    .today {
+      background-color: yellow;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📅 연간 달력 출력기</h2>
+
+  <label for="yearInput">연도:</label>
+  <input type="number" id="yearInput" value="2025" min="1">
+  <button onclick="generateYearCalendar()">달력 출력</button>
+
+  <div id="calendarContainer" class="calendar-grid"></div>
+
+  <script>
+    function isLeapYear(year) {
+      return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+    }
+
+    function generateYearCalendar() {
+      const year = parseInt(document.getElementById("yearInput").value);
+      const container = document.getElementById("calendarContainer");
+      container.innerHTML = "";
+
+      if (isNaN(year) || year < 1) {
+        container.innerHTML = "<p style='color:red;'>올바른 연도를 입력하세요.</p>";
+        return;
+      }
+
+      const today = new Date();
+      const todayYear = today.getFullYear();
+      const todayMonth = today.getMonth();
+      const todayDate = today.getDate();
+
+      const monthNames = [
+        "1월", "2월", "3월", "4월", "5월", "6월",
+        "7월", "8월", "9월", "10월", "11월", "12월"
+      ];
+
+      for (let month = 1; month <= 12; month++) {
+        let daysInMonth;
+        switch (month) {
+          case 2:
+            daysInMonth = isLeapYear(year) ? 29 : 28;
+            break;
+          case 4: case 6: case 9: case 11:
+            daysInMonth = 30;
+            break;
+          default:
+            daysInMonth = 31;
+        }
+
+        let firstDay = new Date(year, month - 1, 1).getDay();
+        let calendarHTML = `<div class="calendar"><h3>${year}년 ${monthNames[month - 1]}</h3>`;
+        calendarHTML += "<table><thead><tr>";
+        const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
+        weekDays.forEach((day, idx) => {
+          const className = idx === 0 ? " class='sunday'" : "";
+          calendarHTML += `<th${className}>${day}</th>`;
+        });
+        calendarHTML += "</tr></thead><tbody><tr>";
+
+        // 빈 셀 추가
+        for (let i = 0; i < firstDay; i++) {
+          calendarHTML += "<td></td>";
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateObj = new Date(year, month - 1, day);
+          const dayOfWeek = dateObj.getDay();
+          let classes = [];
+
+          if (dayOfWeek === 0) classes.push("sunday");
+          if (
+            year === todayYear &&
+            month - 1 === todayMonth &&
+            day === todayDate
+          ) {
+            classes.push("today");
+          }
+
+          const classAttr = classes.length > 0 ? ` class="${classes.join(" ")}"` : "";
+          calendarHTML += `<td${classAttr}>${day}</td>`;
+
+          if (dayOfWeek === 6 && day !== daysInMonth) {
+            calendarHTML += "</tr><tr>";
+          }
+        }
+
+        calendarHTML += "</tr></tbody></table></div>";
+        container.innerHTML += calendarHTML;
+      }
+    }
+
+    // 초기 출력 (현재 연도 기준)
+    window.onload = generateYearCalendar;
+  </script>
+
+</body>
+</html>

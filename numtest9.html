@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>연간 달력 일정 관리</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    .calendar-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .calendar {
+      border: 1px solid #999;
+      padding: 10px;
+      width: 300px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 5px;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    th {
+      background-color: #f0f0f0;
+    }
+
+    .sunday {
+      color: red;
+    }
+
+    .today {
+      background-color: yellow;
+      font-weight: bold;
+    }
+
+    .note-input {
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 8px;
+    }
+
+    .button-group {
+      margin: 20px 0;
+    }
+
+    /* 날짜 메모 모달 */
+    #dayModal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border: 1px solid #333;
+      padding: 20px;
+      z-index: 1000;
+      display: none;
+      width: 300px;
+    }
+
+    #dayModal textarea {
+      width: 100%;
+      height: 100px;
+    }
+
+    #modalOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      background: rgba(0,0,0,0.5);
+      width: 100%;
+      height: 100%;
+      z-index: 999;
+      display: none;
+    }
+
+    #modalHeader {
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    .note-icon {
+      font-size: 0.7em;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📅 연간 달력 + 일정 관리</h2>
+
+  <label for="yearInput">연도:</label>
+  <input type="number" id="yearInput" value="2025" min="1">
+  <button onclick="generateYearCalendar()">달력 출력</button>
+
+  <div class="button-group">
+    <button onclick="saveAsExcel()">📥 Excel로 저장</button>
+    <button onclick="saveAsPDF()">📥 PDF로 저장</button>
+  </div>
+
+  <div id="calendarContainer" class="calendar-grid"></div>
+
+  <!-- 날짜 메모 모달 -->
+  <div id="modalOverlay"></div>
+  <div id="dayModal">
+    <div id="modalHeader"></div>
+    <textarea id="dayNoteInput" placeholder="이 날짜의 일정을 입력하세요..."></textarea>
+    <button onclick="saveDayNote()">저장</button>
+    <button onclick="closeDayModal()">닫기</button>
+  </div>
+
+  <!-- 라이브러리 추가 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <script>
+    const monthNames = [
+      "1월", "2월", "3월", "4월", "5월", "6월",
+      "7월", "8월", "9월", "10월", "11월", "12월"
+    ];
+    let currentDayKey = "";
+
+    function isLeapYear(year) {
+      return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+    }
+
+    function generateYearCalendar() {
+      const year = parseInt(document.getElementById("yearInput").value);
+      const container = document.getElementById("calendarContainer");
+      container.innerHTML = "";
+
+      const today = new Date();
+      const todayYear = today.getFullYear();
+      const todayMonth = today.getMonth();
+      const todayDate = today.getDate();
+
+      for (let month = 1; month <= 12; month++) {
+        let daysInMonth = new Date(year, month, 0).getDate();
+        let firstDay = new Date(year, month - 1, 1).getDay();
+        let calendarHTML = `<div class="calendar" id="calendar-${month}">
+            <h3>${year}년 ${monthNames[month - 1]}</h3>
+            <table><thead><tr>`;
+        const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
+        weekDays.forEach((day, idx) => {
+          const className = idx === 0 ? " class='sunday'" : "";
+          calendarHTML += `<th${className}>${day}</th>`;
+        });
+        calendarHTML += "</tr></thead><tbody><tr>";
+
+        for (let i = 0; i < firstDay; i++) {
+          calendarHTML += "<td></td>";
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateObj = new Date(year, month - 1, day);
+          const dayOfWeek = dateObj.getDay();
+          let classes = [];
+          if (dayOfWeek === 0) classes.push("sunday");
+          if (year === todayYear && month - 1 === todayMonth && day === todayDate) {
+            classes.push("today");
+          }
+
+          const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const hasNote = !!localStorage.getItem(`dayNote-${dateKey}`);
+          let noteIcon = hasNote ? " <span class='note-icon' title='메모 있음'>📝</span>" : "";
+
+          const classAttr = classes.length > 0 ? ` class="${classes.join(" ")}"` : "";
+          calendarHTML += `<td${classAttr} onclick="openDayModal('${dateKey}')">${day}${noteIcon}</td>`;
+
+          if (dayOfWeek === 6 && day !== daysInMonth) {
+            calendarHTML += "</tr><tr>";
+          }
+        }
+
+        calendarHTML += "</tr></tbody></table>";
+
+        // 월 메모 추가
+        const monthKey = `monthNote-${year}-${month}`;
+        const savedNote = localStorage.getItem(monthKey) || "";
+        calendarHTML += `
+          <textarea class="note-input" id="${monthKey}" placeholder="이 달의 일정 메모..." rows="3"
+            oninput="saveMonthNote('${monthKey}')">${savedNote}</textarea>
+        </div>`;
+
+        container.innerHTML += calendarHTML;
+      }
+    }
+
+    function saveMonthNote(key) {
+      const value = document.getElementById(key).value;
+      localStorage.setItem(key, value);
+    }
+
+    function openDayModal(dateKey) {
+      currentDayKey = dateKey;
+      document.getElementById("dayNoteInput").value = localStorage.getItem(`dayNote-${dateKey}`) || "";
+      document.getElementById("modalHeader").innerText = `📌 ${dateKey} 일정 메모`;
+      document.getElementById("modalOverlay").style.display = "block";
+      document.getElementById("dayModal").style.display = "block";
+    }
+
+    function closeDayModal() {
+      document.getElementById("dayModal").style.display = "none";
+      document.getElementById("modalOverlay").style.display = "none";
+      generateYearCalendar(); // 이모지 갱신
+    }
+
+    function saveDayNote() {
+      const text = document.getElementById("dayNoteInput").value;
+      localStorage.setItem(`dayNote-${currentDayKey}`, text);
+      closeDayModal();
+    }
+
+    function saveAsExcel() {
+      const workbook = XLSX.utils.book_new();
+      const year = document.getElementById("yearInput").value;
+
+      for (let month = 1; month <= 12; month++) {
+        const calendar = document.querySelector(`#calendar-${month} table`);
+        const rows = calendar.querySelectorAll("tr");
+        const data = [];
+
+        rows.forEach(row => {
+          const cells = row.querySelectorAll("th, td");
+          const rowData = [];
+          cells.forEach(cell => rowData.push(cell.innerText.trim()));
+          data.push(rowData);
+        });
+
+        const monthKey = `monthNote-${year}-${month}`;
+        const note = localStorage.getItem(monthKey);
+        if (note?.trim()) data.push(["이 달의 메모:", note]);
+
+        const worksheet = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(workbook, worksheet, `${month}월`);
+      }
+
+      XLSX.writeFile(workbook, `달력_${year}년.xlsx`);
+    }
+
+    function saveAsPDF() {
+      const container = document.getElementById("calendarContainer");
+      const opt = {
+        margin: 0.5,
+        filename: `달력_${document.getElementById("yearInput").value}년.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(container).save();
+    }
+
+    window.onload = generateYearCalendar;
+  </script>
+
+</body>
+</html>
